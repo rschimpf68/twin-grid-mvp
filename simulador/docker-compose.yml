@@ -1,0 +1,40 @@
+services:
+  # Base de datos TimescaleDB
+  timescaledb:
+    image: timescale/timescaledb:latest-pg16
+    container_name: twingrid_timescaledb
+    environment:
+      POSTGRES_DB: twingrid
+      POSTGRES_USER: twingrid_user
+      POSTGRES_PASSWORD: twingrid_pass_2025
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    networks:
+      - twingrid_network
+    restart: unless-stopped
+
+  # Broker MQTT Mosquitto
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: twingrid_mosquitto
+    ports:
+      - "1883:1883"      # Puerto MQTT
+      - "9001:9001"      # Puerto WebSocket (opcional)
+    volumes:
+      - ./mosquitto/config/mosquitto.conf:/mosquitto/config/mosquitto.conf
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_logs:/mosquitto/log
+    networks:
+      - twingrid_network
+    restart: unless-stopped
+
+volumes:
+  timescale_data:
+  mosquitto_data:
+  mosquitto_logs:
+
+networks:
+  twingrid_network:
+    driver: bridge
