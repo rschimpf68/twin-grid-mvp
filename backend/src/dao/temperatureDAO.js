@@ -52,6 +52,32 @@ class TemperatureDAO {
       return rows;
    }
 
+   async getDeviceStats(deviceId) {
+      const sql = `
+         SELECT 
+            COUNT(*) as total_count,
+            MIN(temperature) as min_temp,
+            MAX(temperature) as max_temp,
+            AVG(temperature) as avg_temp
+         FROM temperature_readings
+         WHERE device_id = $1;
+      `;
+      const { rows } = await this.db.query(sql, [deviceId]);
+      return rows[0];
+   }
+
+   async getLatestReading(deviceId) {
+      const sql = `
+         SELECT device_id, time, temperature
+         FROM temperature_readings
+         WHERE device_id = $1
+         ORDER BY time DESC
+         LIMIT 1;
+      `;
+      const { rows } = await this.db.query(sql, [deviceId]);
+      return rows[0] || null;
+   }
+
 }
 
 module.exports = TemperatureDAO;

@@ -169,6 +169,107 @@ module.exports = ({ temperatureService, humidityService, alertService }) => {
       }
    });
 
+   /**
+    * GET /api/devices/:id
+    * Obtiene información completa del dispositivo
+    * Verifica en ambas tablas (temperatura y humedad) y devuelve los datos disponibles
+    * - Historial (últimos 50 registros) de temperatura y/o humedad
+    * - Mínimo y máximo de los últimos 50
+    * - Promedio de los últimos 50
+    * - Total de datos
+    * - Valores actuales
+    * - Historial de alertas
+    */
+   router.get('/devices/:id', async (req, res) => {
+      try {
+         const { id } = req.params;
+
+         // Consultar ambos servicios en paralelo
+         const [tempInfo, humInfo, alerts] = await Promise.all([
+            temperatureService.getDeviceInfo(id).catch(() => null),
+            humidityService.getDeviceInfo(id).catch(() => null),
+            alertService.getAlertHistory({ deviceId: id, limit: 100 })
+         ]);
+
+         // Verificar si hay datos en alguna tabla
+         const hasTempData = tempInfo && tempInfo.totalCount > 0;
+         const hasHumData = humInfo && humInfo.totalCount > 0;
+
+         if (!hasTempData && !hasHumData) {
+            return res.status(404).json({
+               success: false,
+               error: 'Dispositivo no encontrado'
+            });
+         }
+
+         // Construir respuesta con datos disponibles
+         const response = {
+            device_id: id,
+            alerts: alerts.map(a => ({
+               id: a.id,
+               alert_type: a.alert_type,
+               message: a.message,
+               threshold_value: a.threshold_value,
+               created_at: a.created_at,
+               resolved_at: a.resolved_at,
+               is_active: a.is_active
+            }))
+         };
+
+         // Agregar datos de temperatura si existen
+         if (hasTempData) {
+            response.temperature = {
+               history: tempInfo.history.map(r => ({
+                  time: r.time,
+                  temperature: r.temperature
+               })),
+               last50Stats: {
+                  min: tempInfo.last50Stats.min,
+                  max: tempInfo.last50Stats.max,
+                  average: tempInfo.last50Stats.avg
+               },
+               totalCount: tempInfo.totalCount,
+               current: tempInfo.current ? {
+                  temperature: tempInfo.current.temperature,
+                  timestamp: tempInfo.current.timestamp
+               } : null
+            };
+         }
+
+         // Agregar datos de humedad si existen
+         if (hasHumData) {
+            response.humidity = {
+               history: humInfo.history.map(r => ({
+                  time: r.time,
+                  humidity: r.humidity
+               })),
+               last50Stats: {
+                  min: humInfo.last50Stats.min,
+                  max: humInfo.last50Stats.max,
+                  average: humInfo.last50Stats.avg
+               },
+               totalCount: humInfo.totalCount,
+               current: humInfo.current ? {
+                  humidity: humInfo.current.humidity,
+                  timestamp: humInfo.current.timestamp
+               } : null
+            };
+         }
+
+         res.json({
+            success: true,
+            data: response
+         });
+
+      } catch (error) {
+         console.error('Error obteniendo información del dispositivo:', error);
+         res.status(500).json({
+            success: false,
+            error: 'Error obteniendo información del dispositivo'
+         });
+      }
+   });
+
 
    /**
     * GET /api/devices/:deviceId/latest
@@ -246,35 +347,69 @@ module.exports = ({ temperatureService, humidityService, alertService }) => {
 
    /**
     * GET /api/alerts
-    * Obtiene alertas
+    * Obtiene todas las alertas con paginación
     * Query params:
-    *   - deviceId: filtrar por dispositivo
-    *   - active: true/false para filtrar solo activas
-    *   - limit: número de alertas (default 50)
+    *   - deviceId: filtrar por dispositivo (opcional)
+    *   - active: true/false para filtrar solo activas (opcional)
+    *   - limit: número de alertas por página (default 50)
+    *   - offset: número de registros a saltar para paginación (default 0)
     */
    router.get('/alerts', async (req, res) => {
       try {
-         const { deviceId, active, limit } = req.query;
+         const { deviceId, active, limit, offset } = req.query;
 
-         let alerts;
-
+         // Si se solicita solo activas, usar el método específico
          if (active === 'true') {
-            alerts = await alertService.getActiveAlerts(
+            const alerts = await alertService.getActiveAlerts(
                deviceId ? { deviceId } : {}
             );
-         } else {
-            const alertLimit = limit ? parseInt(limit) : 50;
-            alerts = await alertService.getAlertHistory({
-               deviceId: deviceId || undefined,
-               limit: alertLimit
+            return res.json({
+               success: true,
+               data: alerts,
+               count: alerts.length
             });
          }
 
+         // Para historial completo con paginación
+         const limitNum = limit ? parseInt(limit) : 50;
+         const offsetNum = offset ? parseInt(offset) : 0;
+
+         // Validar parámetros
+         if (isNaN(limitNum) || limitNum < 1 || limitNum > 500) {
+            return res.status(400).json({
+               success: false,
+               error: 'limit debe ser un número entre 1 y 500'
+            });
+         }
+
+         if (isNaN(offsetNum) || offsetNum < 0) {
+            return res.status(400).json({
+               success: false,
+               error: 'offset debe ser un número mayor o igual a 0'
+            });
+         }
+
+         const result = await alertService.getAlertsPaginated({
+            limit: limitNum,
+            offset: offsetNum,
+            deviceId: deviceId || undefined
+         });
+
          res.json({
             success: true,
-            data: alerts,
-            count: alerts.length
+            data: result.data.map(a => ({
+               id: a.id,
+               device_id: a.device_id,
+               alert_type: a.alert_type,
+               message: a.message,
+               threshold_value: a.threshold_value,
+               created_at: a.created_at,
+               resolved_at: a.resolved_at,
+               is_active: a.is_active
+            })),
+            pagination: result.pagination
          });
+
       } catch (error) {
          console.error('Error obteniendo alertas:', error);
          res.status(500).json({

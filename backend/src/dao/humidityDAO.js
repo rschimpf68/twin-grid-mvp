@@ -48,6 +48,32 @@ class HumidityDAO {
       return rows;
    }
 
+   async getDeviceStats(deviceId) {
+      const sql = `
+         SELECT 
+            COUNT(*) as total_count,
+            MIN(humidity) as min_humidity,
+            MAX(humidity) as max_humidity,
+            AVG(humidity) as avg_humidity
+         FROM humidity_readings
+         WHERE device_id = $1;
+      `;
+      const { rows } = await this.db.query(sql, [deviceId]);
+      return rows[0];
+   }
+
+   async getLatestReading(deviceId) {
+      const sql = `
+         SELECT device_id, time, humidity
+         FROM humidity_readings
+         WHERE device_id = $1
+         ORDER BY time DESC
+         LIMIT 1;
+      `;
+      const { rows } = await this.db.query(sql, [deviceId]);
+      return rows[0] || null;
+   }
+
 }
 
 module.exports = HumidityDAO;

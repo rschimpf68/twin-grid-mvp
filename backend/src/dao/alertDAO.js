@@ -44,16 +44,23 @@ class AlertDAO {
       return rows;
    }
 
-   async getHistory({ deviceId, limit = 100 } = {}) {
+   async getHistory({ deviceId, limit = 100, offset = 0 } = {}) {
       const params = [];
       let where = '';
+      let paramIndex = 1;
 
       if (deviceId) {
          params.push(deviceId);
-         where = `WHERE device_id = $${params.length}`;
+         where = `WHERE device_id = $${paramIndex}`;
+         paramIndex++;
       }
 
       params.push(limit);
+      const limitIndex = paramIndex;
+      paramIndex++;
+
+      params.push(offset);
+      const offsetIndex = paramIndex;
 
       const sql = `
        SELECT id, device_id, alert_type, message, threshold_value,
@@ -61,10 +68,29 @@ class AlertDAO {
        FROM alerts
        ${where}
        ORDER BY created_at DESC
-       LIMIT $${params.length};
+       LIMIT $${limitIndex}
+       OFFSET $${offsetIndex};
      `;
       const { rows } = await this.db.query(sql, params);
       return rows;
+   }
+
+   async getTotalCount({ deviceId } = {}) {
+      const params = [];
+      let where = '';
+
+      if (deviceId) {
+         params.push(deviceId);
+         where = `WHERE device_id = $1`;
+      }
+
+      const sql = `
+       SELECT COUNT(*) as total
+       FROM alerts
+       ${where};
+     `;
+      const { rows } = await this.db.query(sql, params);
+      return parseInt(rows[0]?.total || 0);
    }
 }
 

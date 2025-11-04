@@ -65,6 +65,23 @@ class AlertService {
    async getAlertHistory(filter = {}) {
       return this.alertDAO.getHistory(filter);
    }
+
+   async getAlertsPaginated({ limit = 50, offset = 0, deviceId } = {}) {
+      const [alerts, total] = await Promise.all([
+         this.alertDAO.getHistory({ deviceId, limit, offset }),
+         this.alertDAO.getTotalCount({ deviceId })
+      ]);
+
+      return {
+         data: alerts,
+         pagination: {
+            limit,
+            offset,
+            total,
+            hasMore: offset + alerts.length < total
+         }
+      };
+   }
 }
 
 module.exports = AlertService;

@@ -1,10 +1,12 @@
 // index.js (fragmento con DI agregado)
 const express = require('express');
+const http = require('http');
 const cors = require('cors');
 
 // Config & DB (Singletons)
 const config = require('./config/config');
 const db = require('./database/db');
+const socketServer = require('./websocket/socketServer');
 
 // DAOs
 const TemperatureDAO = require('./dao/temperatureDAO');
@@ -20,6 +22,7 @@ const AlertService = require('./services/alertService');
 const StrategyFactory = require('./strategies/StrategyFactory');
 const mqttClient = require('./mqtt/mqttClient');
 
+
 // API Routes (convertimos en función que recibe services)
 const createApiRoutes = require('./routes/api');
 
@@ -31,10 +34,11 @@ const humidityDAO = new HumidityDAO(db);
 
 //  Instancias Services con DI
 const alertService = new AlertService(alertDAO, config);
-const temperatureService = new TemperatureService(temperatureDAO, alertService, config);
-const humidityService = new HumidityService(humidityDAO, alertService, config);
+const temperatureService = new TemperatureService(temperatureDAO, alertService, config, socketServer);
+const humidityService = new HumidityService(humidityDAO, alertService, config, socketServer);
 //  Crear Express App
 const app = express();
+const httpServer = http.createServer(app);
 app.use(cors());
 app.use(express.json());
 
@@ -92,6 +96,8 @@ async function startServer() {
       await db.query('SELECT NOW()');
       console.log('✅ Base de datos conectada\n');
 
+      socketServer.initialize(httpServer);
+
       // 2. Conectar al broker MQTT
       console.log('🔍 Iniciando cliente MQTT...');
 
@@ -116,6 +122,7 @@ async function startServer() {
          console.log(`   - Umbrales críticos: ${config.thresholds.humidity.high}% y ${config.thresholds.humidity.low}%`);
          console.log(`   - Umbrales críticos: ${config.thresholds.temperature.high}°C y ${config.thresholds.temperature.low}°C`);
          console.log(`\n✨ Sistema listo. Esperando eventos IoT...\n`);
+         console.log(`🔌 WS habilitado en ws://localhost:${config.api.port}`);
       });
 
    } catch (error) {
