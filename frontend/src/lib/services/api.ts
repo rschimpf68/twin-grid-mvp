@@ -13,7 +13,7 @@ export interface Device {
 
 export async function fetchDevices(signal?: AbortSignal): Promise<Device[]> {
    try {
-      const res = await fetch("http://192.168.0.110:3001/api/devices", {
+      const res = await fetch("http://localhost:3001/api/devices", {
          // `next` options are ignored on the client; keeping for possible server usage
          next: { revalidate: 5 },
          signal,
@@ -69,7 +69,7 @@ export interface AlertsResponse {
 
 export async function fetchAlerts(signal?: AbortSignal): Promise<AlertsResponse | null> {
    try {
-      const res = await fetch("http://192.168.0.110:3001/api/alerts", {
+      const res = await fetch("http://localhost:3001/api/alerts", {
          next: { revalidate: 5 },
          signal,
       });
@@ -146,7 +146,7 @@ export interface DeviceData {
 
 export async function fetchDeviceData(deviceId: string, signal?: AbortSignal): Promise<DeviceData | null> {
    try {
-      const res = await fetch(`http://192.168.0.110:3001/api/devices/${deviceId}`, {
+      const res = await fetch(`http://localhost:3001/api/devices/${deviceId}`, {
          next: { revalidate: 5 },
          signal,
       });
