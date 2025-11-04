@@ -1,6 +1,3 @@
-export interface Device {
-  device_id: string;
-  temperature?: number;
-  humidity?: number;
-  updated_at: string | null;
-}
+// Device interface moved to src/lib/services/api.ts
+// This file is kept for backwards compatibility
+export type { Device } from "@/lib/services/api";

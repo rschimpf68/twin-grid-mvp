@@ -1,13 +1,18 @@
-import { fetchDevices } from "../lib/services/api";
-import { DevicesList } from "@/components/DevicesList";
+import { fetchDevices, fetchAlerts } from "../lib/services/api";
+import { Dashboard } from "@/components/Dashboard/Dashboard";
 
 export default async function Home() {
-  const initialDevices = await fetchDevices();
+  const [initialDevices, initialAlerts] = await Promise.all([
+    fetchDevices(),
+    fetchAlerts(),
+  ]);
 
   return (
-    <main className="min-h-screen bg-[#0d1117] text-white p-6">
-      <h1 className="text-3xl font-bold pb-5">TwinGrid Dashboard ⚡</h1>
-      <DevicesList initialDevices={initialDevices} />
+    <main className="min-h-screen bg-background p-6">
+      <Dashboard
+        initialDevices={initialDevices}
+        initialAlerts={initialAlerts}
+      />
     </main>
   );
 }
